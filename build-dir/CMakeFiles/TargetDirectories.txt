@@ -1,0 +1,3 @@
+/Users/joe/Developer/projects/joe/build-dir/CMakeFiles/joescript.dir
+/Users/joe/Developer/projects/joe/build-dir/CMakeFiles/edit_cache.dir
+/Users/joe/Developer/projects/joe/build-dir/CMakeFiles/rebuild_cache.dir
