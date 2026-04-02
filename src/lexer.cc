@@ -2,7 +2,8 @@
 #include <cctype>
 #include <fstream>
 #include <iostream>
-#include <optional> #include <string>
+#include <optional>
+#include <string>
 #include <vector>
 
 char Tokenizer::peek(int offset) const {
@@ -199,6 +200,17 @@ std::vector<Token> Tokenizer::tokenize() {
         curr_token.type = TokenType::slash_eq;
         curr_token.line = m_line;
         consume();
+      } else if (peek() == '/') {
+        consume();
+        while (!(peek() == '\0')) {
+          (*curr_token.value) += std::string(1, consume());
+        }
+        curr_token.type = TokenType::comment;
+        curr_token.line = m_line;
+        consume();
+        tokens.push_back(curr_token);
+        curr_token = Token{};
+
       } else {
         curr_token.value = "/";
         curr_token.type = TokenType::slash;

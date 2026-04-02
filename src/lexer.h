@@ -53,7 +53,8 @@ enum class TokenType {
   less_eq,
   break_,
   continue_,
-  index
+  index,
+  comment
 };
 
 struct Token {
