@@ -27,7 +27,7 @@ std::vector<Token> Tokenizer::tokenize() {
   std::vector<Token> tokens{};
   struct Token curr_token{};
 
-  while (Tokenizer::peek() != '\0') {
+  while (peek() != '\0') {
     // If token starts or contains letters or nums
     if (std::isalpha(peek())) {
       curr_token.line = m_line;
@@ -201,16 +201,9 @@ std::vector<Token> Tokenizer::tokenize() {
         curr_token.line = m_line;
         consume();
       } else if (peek() == '/') {
-        consume();
-        while (!(peek() == '\0')) {
-          (*curr_token.value) += std::string(1, consume());
+        while (peek() != '\n' && peek() != '\0') {
+          consume();
         }
-        curr_token.type = TokenType::comment;
-        curr_token.line = m_line;
-        consume();
-        tokens.push_back(curr_token);
-        curr_token = Token{};
-
       } else {
         curr_token.value = "/";
         curr_token.type = TokenType::slash;
@@ -368,32 +361,4 @@ std::vector<Token> Tokenizer::tokenize() {
   }
 
   return tokens;
-}
-
-int main() {
-  std::ifstream inputfile("test.txt");
-
-  if (!inputfile.is_open()) {
-    std::cout << "ERROR";
-    return 1;
-  }
-
-  std::string line;
-  std::string file;
-
-  while (std::getline(inputfile, line)) {
-    file += line;
-    file += '\n';
-  }
-
-  std::cout << file << std::endl;
-
-  Tokenizer tokenize_file(file);
-  std::vector<Token> tokens = tokenize_file.tokenize();
-
-  for (auto &token : tokens) {
-    std::cout << "Value: " << token.value.value_or("no value")
-              << " Line: " << token.line << std::endl;
-  }
-  return 0;
 }
