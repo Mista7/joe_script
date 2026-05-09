@@ -2,13 +2,12 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -g
 
-# 2. Targets: What are we building?
-TARGET = lexer
+TARGET = compiler
 
-# 3. The Build Rule
-$(TARGET): lexer.cc
-	$(CXX) $(CXXFLAGS) lexer.cc -o $(TARGET)
+SRCS = main.cc lexer.cc
 
-# 4. Cleanup: Run 'make clean' to delete the executable
+$(TARGET): $(SRCS)
+	$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
+
 clean:
 	rm -f $(TARGET)

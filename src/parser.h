@@ -14,9 +14,11 @@ enum class Node_Type {
   while_,
   for_,
   bin_expr,
+  un_expr,
   ret,
   print_,
   var,
+  var_ref,
   type,
   str_lit,
   char_lit,
@@ -160,13 +162,19 @@ private:
 };
 class Var_Node : public Node {
 public:
-  Var_Node(TokenType type, std::string name, std::unique_ptr<Node> val)
-      : Node(Node_Type::var), m_var_type(type), m_name(name),
-        m_val(std::move(val)) {}
+  Var_Node(std::string name, std::unique_ptr<Node> val)
+      : Node(Node_Type::var), m_name(name), m_val(std::move(val)) {}
 
-  TokenType m_var_type;
   std::string m_name;
   std::unique_ptr<Node> m_val;
+
+private:
+};
+
+class VarRef_Node : public Node {
+public:
+  VarRef_Node(std::string name) : Node(Node_Type::var_ref), m_name(name) {};
+  std::string m_name;
 
 private:
 };
@@ -185,6 +193,17 @@ public:
 private:
 };
 
+class Unary_Node : public Node {
+public:
+  Unary_Node(TokenType op, std::unique_ptr<Node> right)
+      : Node(Node_Type::un_expr), m_op(op), m_right(std::move(right)) {}
+
+  TokenType m_op;
+  std::unique_ptr<Node> m_right;
+
+private:
+};
+
 class Parser {
 public:
   Parser(std::vector<Token> tokens) : m_tokens(std::move(tokens)), m_index(0) {}
@@ -196,4 +215,9 @@ private:
   const std::vector<Token> m_tokens;
   std::optional<Token> peek(int offset = 0) const;
   Token consume();
+  std::unique_ptr<Return_Node> parse_ret(TokenType type);
+  std::unique_ptr<If_Node> parse_if();
+  std::unique_ptr<Node> parse_expr(int min_bp = 0);
+  std::unique_ptr<Node> parse_prefix(Token token);
+  std::unique_ptr<Node> parse_infix(std::unique_ptr<Node> left, Token op);
 };

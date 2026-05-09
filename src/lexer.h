@@ -15,7 +15,9 @@ enum class TokenType {
   int_,
   str_,
   bool_,
+  bool_lit,
   float_,
+  float_lit,
   arr_,
   if_,
   elif_,
@@ -41,7 +43,9 @@ enum class TokenType {
   dot,
   plus,
   plus_eq,
+  plus_plus,
   minus,
+  minus_minus,
   minus_eq,
   slash,
   slash_eq,
@@ -54,7 +58,12 @@ enum class TokenType {
   break_,
   continue_,
   index,
-  comment
+  comment,
+  exp,
+  logical_or,
+  logical_and,
+  bit_or,
+  bit_and,
 };
 
 struct Token {

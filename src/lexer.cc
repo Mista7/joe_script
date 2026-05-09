@@ -79,14 +79,24 @@ std::vector<Token> Tokenizer::tokenize() {
 
     // Ints
     else if (isdigit(peek())) {
+      bool is_float = false;
       curr_token.value = std::string(1, peek());
       curr_token.line = m_line;
       consume();
-      while (isdigit(peek())) {
+      while (isdigit(peek()) || peek() == '.') {
+        if (peek() == '.' && is_float == false) {
+          is_float = true;
+        } else if (peek() == '.') {
+          std::cerr << "Can't have multiple . in float gang" << std::endl;
+        }
         (*curr_token.value) += std::string(1, peek());
         consume();
       }
-      curr_token.type = TokenType::int_lit;
+      if (is_float) {
+        curr_token.type = TokenType::float_lit;
+      } else {
+        curr_token.type = TokenType::int_lit;
+      }
       tokens.push_back(curr_token);
       curr_token = Token{};
     }
@@ -186,6 +196,11 @@ std::vector<Token> Tokenizer::tokenize() {
         curr_token.type = TokenType::star_eq;
         curr_token.line = m_line;
         consume();
+      } else if (peek() == '*') {
+        curr_token.value = "**";
+        curr_token.type = TokenType::exp;
+        curr_token.line = m_line;
+        consume();
       } else {
         curr_token.value = "*";
         curr_token.type = TokenType::star;
@@ -218,6 +233,11 @@ std::vector<Token> Tokenizer::tokenize() {
         curr_token.type = TokenType::minus_eq;
         curr_token.line = m_line;
         consume();
+      } else if (peek() == '-') {
+        curr_token.value = "--";
+        curr_token.type = TokenType::minus_minus;
+        curr_token.line = m_line;
+        consume();
       } else {
         curr_token.value = "-";
         curr_token.type = TokenType::minus;
@@ -230,6 +250,11 @@ std::vector<Token> Tokenizer::tokenize() {
       if (peek() == '=') {
         curr_token.value = "+=";
         curr_token.type = TokenType::plus_eq;
+        curr_token.line = m_line;
+        consume();
+      } else if (peek() == '+') {
+        curr_token.value = "++";
+        curr_token.type = TokenType::plus_plus;
         curr_token.line = m_line;
         consume();
       } else {
@@ -284,8 +309,31 @@ std::vector<Token> Tokenizer::tokenize() {
       }
       tokens.push_back(curr_token);
       curr_token = Token{};
+    } else if (peek() == '&') {
+      consume();
+      if (peek() == '&') {
+        curr_token.value = "&&";
+        curr_token.type = TokenType::logical_and;
+        curr_token.line = m_line;
+        consume();
+      } else {
+        curr_token.value = "&";
+        curr_token.type = TokenType::bit_and;
+        curr_token.line = m_line;
+        consume();
+      }
+    } else if (peek() == '|') {
+      consume();
+      if (peek() == '|') {
+        curr_token.value = "||";
+        curr_token.type = TokenType::logical_or;
+        curr_token.line = m_line;
+      } else {
+        curr_token.value = "|";
+        curr_token.type = TokenType::bit_or;
+        curr_token.line = m_line;
+      }
     }
-
     // Literals
     else if (peek() == ';') {
       curr_token.type = TokenType::semi;
