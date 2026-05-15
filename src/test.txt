@@ -9,25 +9,3 @@ if (1 > 2**2) {
 
 joePrint("yessisierie is ojdfjdslkjadljfaldjal;sdk jalsdjf alsdkjf aldjfal sdjfl asdjla jdflkajsdflaksdjf alsdk sdf alsdkjf aldj ");
 
-
-
-//Cases still missing:
-
-//All comparison operators in infix_bp — ==, !=, >, <, >=, <=
-//Logical operators && and ||
-//Assignment operators +=, -=, *=, /=
-//All other literal types in parse_prefix — float_lit, str_lit, bool_lit, char_lit, var
-//Grouped expression round_open in parse_prefix
-
-//Missing cases in each function:
-//parse_prefix:
-
-//parse_infix:
-
-//All the comparison operators
-//Logical operators
-//Assignment operators — you have the start of this commented out but need to finish it
-
-
-true
-false;

@@ -23,8 +23,6 @@ int main() {
     file += '\n';
   }
 
-  std::cout << file << std::endl;
-
   Tokenizer tokenize_file(file);
   std::vector<Token> tokens = tokenize_file.tokenize();
 

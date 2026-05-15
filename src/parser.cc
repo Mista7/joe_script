@@ -5,7 +5,6 @@
 #include <memory>
 #include <optional>
 #include <ostream>
-#include <setjmp.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -22,54 +21,38 @@ Token Parser::consume() {
   return Parser::m_tokens.at(m_index - 1);
 }
 
-std::vector<std::unique_ptr<Root_Node>> Parser::parser() {
-  Root_Node root;
+std::unique_ptr<Root_Node> Parser::parser() {
+  auto root = std::make_unique<Root_Node>();
   while (m_tokens.size() != m_index) {
     if (peek().has_value()) {
       if (peek()->type == TokenType::return_) {
-        TokenType type = peek()->type;
-        root.m_children.push_back(std::move(parse_ret(type)));
+        Token token = peek().value();
+        root->m_children.push_back(std::move(parse_ret(token)));
       } else if (peek()->type == TokenType::if_) {
         consume();
-
-        if (peek()->type == TokenType::round_open) {
-          while (peek()->type != TokenType::round_close) {
-            if (peek()->type == TokenType::round_open) {
-              while (peek()->type != TokenType::round_close)
-            }
-          }
-        }
-        parse_if();
+        root->m_children.push_back(std::move(parse_if(Node_Type::if_)));
+      } else if (peek()->type == TokenType::elif_) {
+        consume();
+        root->m_children.push_back(std::move(parse_if(Node_Type::elif_)));
+      } else if (peek()->type == TokenType::else_) {
+        consume();
+        root->m_children.push_back(std::move(parse_else()));
       }
     }
   }
+
+  return std::move(root);
 }
 
-std::unique_ptr<Return_Node> Parser::parse_ret(TokenType type) {
-  std::unique_ptr<Node> val;
-  switch (type) {
-  case TokenType::int_lit:
-    val = std::make_unique<Intlit_Node>(std::stoi(peek()->value.value()));
-    break;
-  case TokenType::char_lit:
-    val = std::make_unique<Charlit_Node>(peek()->value.value()[0]);
-    break;
-  case TokenType::bool_:
-    val = std::make_unique<Boollit_Node>(
-        (peek()->value.value() == "true") ? true : false);
-    break;
-  case TokenType::str_lit:
-    val = std::make_unique<Strlit_Node>(peek()->value.value());
-    break;
-  case TokenType::var:
-    // VAR PARSING NOT MADE YET
-    std::cout << "Need to implement variable parsing" << std::endl;
-    break;
-    // val = std::make_unique<Var_Node>()
-  default:
-    throw std::runtime_error("Not valid for a return expression");
+std::unique_ptr<Return_Node> Parser::parse_ret(Token token) {
+  TokenType type = token.type;
+  auto val = parse_expr();
+  if (peek()->type == TokenType::semi) {
+    consume();
+  } else {
+    std::cerr << "Invalid return statement" << std::endl;
   }
-  consume();
+
   return std::make_unique<Return_Node>(std::move(val));
 }
 
@@ -155,9 +138,13 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
   }
 
   else if (token.type == TokenType::round_open) {
-    consume();
     std::unique_ptr<Node> right = parse_expr(0);
-    consume();
+    if (peek().has_value() && peek().value().type == TokenType::round_close) {
+      consume();
+    } else {
+      std::cerr << "Missing closing bracket monkey" << std::endl;
+      return nullptr;
+    }
     return right;
   }
 
@@ -167,7 +154,7 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
 
   else {
     std::cerr << "Expected Expression but got monkeyness" << std::endl;
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -176,17 +163,11 @@ std::unique_ptr<Node> Parser::parse_infix(std::unique_ptr<Node> left,
   int op_bp = infix_bp(op);
   std::unique_ptr<Node> right;
 
-  if (op.type == TokenType::equal) {
-    // right = parse_expr(op_bp - 1);
-    //
-    // if (left->m_type != Node_Type::var) {
-    //   std::cerr << "Cannot assign to this type, err on line " << op.line
-    //             << std::endl;
-    // }
-    //
-    // return std::make_unique<Var_Node>()
+  if (op_bp == 1 || op.type == TokenType::exp) {
+    right = parse_expr(op_bp - 1);
+  } else {
+    right = parse_expr(op_bp);
   }
-  right = parse_expr(op_bp);
   return std::make_unique<Expression_Node>(std::move(left), op.type,
                                            std::move(right));
 }
@@ -199,4 +180,49 @@ std::unique_ptr<Node> Parser::parse_expr(int min_bp) {
     left = std::move(node);
   }
   return left;
+}
+
+std::unique_ptr<Node> Parser::parse_if(Node_Type if_or_elif) {
+  std::unique_ptr<Node> cond = std::move(parse_expr());
+  std::unique_ptr<Node> body = std::move(parse_body());
+
+  if (if_or_elif == Node_Type::if_) {
+    return std::make_unique<If_Node>(std::move(cond), std::move(body));
+  } else {
+    return std::make_unique<Elif_Node>(std::move(cond), std::move(body));
+  }
+}
+
+std::unique_ptr<Node> Parser::parse_else() {
+  std::unique_ptr<Node> body = std::move(parse_body());
+  return std::make_unique<Else_Node>(std::move(body));
+}
+
+std::unique_ptr<Body_Node> Parser::parse_body() {
+  std::vector<std::unique_ptr<Node>> body;
+  if (peek()->type == TokenType::curl_open) {
+    consume();
+  }
+  while (peek()->type != TokenType::curl_close && peek()->value.has_value()) {
+    if (peek()->type == TokenType::if_) {
+      body.push_back(std::move(parse_if(Node_Type::if_)));
+    } else if (peek()->type == TokenType::elif_) {
+      body.push_back(std::move(parse_if(Node_Type::elif_)));
+    } else if (peek()->type == TokenType::else_) {
+      body.push_back(std::move(parse_else()));
+    } else if (peek()->type == TokenType::for_) {
+      body.push_back(std::move(parse_for()));
+    } else if (peek()->type == TokenType::while_) {
+      body.push_back(std::move(parse_while()));
+    } else {
+      body.push_back(std::move(parse_expr()));
+      if (peek()->type == TokenType::semi) {
+        consume();
+      } else {
+        std::cerr << "Invalid statement" << std::endl;
+      }
+    }
+  }
+
+  return std::make_unique<Body_Node>(std::move(body));
 }

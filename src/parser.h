@@ -13,6 +13,7 @@ enum class Node_Type {
   else_,
   while_,
   for_,
+  body,
   bin_expr,
   un_expr,
   ret,
@@ -47,10 +48,11 @@ private:
 
 class If_Node : public Node {
 public:
-  If_Node(std::unique_ptr<Node> cond)
-      : Node(Node_Type::if_), m_condition(std::move(cond)) {}
+  If_Node(std::unique_ptr<Node> cond, std::unique_ptr<Node> body)
+      : Node(Node_Type::if_), m_condition(std::move(cond)),
+        m_body(std::move(body)) {}
   std::unique_ptr<Node> m_condition;
-  std::vector<std::unique_ptr<Node>> m_body;
+  std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Node>> m_next;
 
 private:
@@ -58,10 +60,11 @@ private:
 
 class Elif_Node : public Node {
 public:
-  Elif_Node(std::unique_ptr<Node> cond)
-      : Node(Node_Type::elif_), m_condition(std::move(cond)) {}
+  Elif_Node(std::unique_ptr<Node> cond, std::unique_ptr<Node> body)
+      : Node(Node_Type::elif_), m_condition(std::move(cond)),
+        m_body(std::move(body)) {}
   std::unique_ptr<Node> m_condition;
-  std::vector<std::unique_ptr<Node>> m_body;
+  std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Node>> m_next;
 
 private:
@@ -69,8 +72,9 @@ private:
 
 class Else_Node : public Node {
 public:
-  Else_Node() : Node(Node_Type::else_) {}
-  std::vector<std::unique_ptr<Node>> m_body;
+  Else_Node(std::unique_ptr<Node> body)
+      : Node(Node_Type::else_), m_body(std::move(body)) {}
+  std::unique_ptr<Node> m_body;
 
 private:
 };
@@ -108,6 +112,16 @@ public:
   std::unique_ptr<Node> m_incr;
   std::vector<std::unique_ptr<Node>> m_body;
   std::optional<std::unique_ptr<Else_Node>> m_else;
+
+private:
+};
+
+class Body_Node : public Node {
+public:
+  Body_Node(std::vector<std::unique_ptr<Node>> items)
+      : Node(Node_Type::body), m_items(items) {};
+
+  std::vector<std::unique_ptr<Node>> m_items;
 
 private:
 };
@@ -208,16 +222,22 @@ class Parser {
 public:
   Parser(std::vector<Token> tokens) : m_tokens(std::move(tokens)), m_index(0) {}
 
-  std::vector<std::unique_ptr<Root_Node>> parser();
+  std::unique_ptr<Root_Node> parser();
 
 private:
   int m_index;
   const std::vector<Token> m_tokens;
   std::optional<Token> peek(int offset = 0) const;
   Token consume();
-  std::unique_ptr<Return_Node> parse_ret(TokenType type);
+  std::unique_ptr<Return_Node> parse_ret(Token token);
   std::unique_ptr<If_Node> parse_if();
   std::unique_ptr<Node> parse_expr(int min_bp = 0);
   std::unique_ptr<Node> parse_prefix(Token token);
   std::unique_ptr<Node> parse_infix(std::unique_ptr<Node> left, Token op);
+  std::unique_ptr<Node> parse_statement();
+  std::unique_ptr<Body_Node> parse_body();
+  std::unique_ptr<Node> parse_if(Node_Type if_or_elif);
+  std::unique_ptr<Node> parse_else();
+  std::unique_ptr<Node> parse_for();
+  std::unique_ptr<Node> parse_while();
 };
