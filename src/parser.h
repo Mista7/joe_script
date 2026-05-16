@@ -90,11 +90,12 @@ private:
 
 class While_Node : public Node {
 public:
-  While_Node(std::unique_ptr<Node> cond)
-      : Node(Node_Type::while_), m_condition(std::move(cond)) {}
+  While_Node(std::unique_ptr<Node> cond, std::unique_ptr<Node> body)
+      : Node(Node_Type::while_), m_condition(std::move(cond)),
+        m_body(std::move(body)) {}
 
   std::unique_ptr<Node> m_condition;
-  std::vector<std::unique_ptr<Node>> m_body;
+  std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Else_Node>> m_else;
 
 private:
@@ -103,14 +104,15 @@ private:
 class For_Node : public Node {
 public:
   For_Node(std::unique_ptr<Node> init, std::unique_ptr<Node> cond,
-           std::unique_ptr<Node> incr)
+           std::unique_ptr<Node> incr, std::unique_ptr<Node> body)
       : Node(Node_Type::for_), m_init(std::move(init)),
-        m_condition(std::move(cond)), m_incr(std::move(incr)) {}
+        m_condition(std::move(cond)), m_incr(std::move(incr)),
+        m_body(std::move(body)) {}
 
   std::unique_ptr<Node> m_init;
   std::unique_ptr<Node> m_condition;
   std::unique_ptr<Node> m_incr;
-  std::vector<std::unique_ptr<Node>> m_body;
+  std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Else_Node>> m_else;
 
 private:
@@ -119,7 +121,7 @@ private:
 class Body_Node : public Node {
 public:
   Body_Node(std::vector<std::unique_ptr<Node>> items)
-      : Node(Node_Type::body), m_items(items) {};
+      : Node(Node_Type::body), m_items(std::move(items)) {};
 
   std::vector<std::unique_ptr<Node>> m_items;
 
@@ -176,11 +178,13 @@ private:
 };
 class Var_Node : public Node {
 public:
-  Var_Node(std::string name, std::unique_ptr<Node> val)
-      : Node(Node_Type::var), m_name(name), m_val(std::move(val)) {}
+  Var_Node(std::string name, std::unique_ptr<Node> val, TokenType type)
+      : Node(Node_Type::var), m_name(name), m_val(std::move(val)),
+        m_type(type) {}
 
   std::string m_name;
   std::unique_ptr<Node> m_val;
+  TokenType m_type;
 
 private:
 };
@@ -220,16 +224,16 @@ private:
 
 class Parser {
 public:
-  Parser(std::vector<Token> tokens) : m_tokens(std::move(tokens)), m_index(0) {}
+  Parser(std::vector<Token> tokens) : m_index(0), m_tokens(std::move(tokens)) {}
 
   std::unique_ptr<Root_Node> parser();
 
 private:
-  int m_index;
+  size_t m_index;
   const std::vector<Token> m_tokens;
   std::optional<Token> peek(int offset = 0) const;
   Token consume();
-  std::unique_ptr<Return_Node> parse_ret(Token token);
+  std::unique_ptr<Return_Node> parse_ret();
   std::unique_ptr<If_Node> parse_if();
   std::unique_ptr<Node> parse_expr(int min_bp = 0);
   std::unique_ptr<Node> parse_prefix(Token token);
@@ -240,4 +244,6 @@ private:
   std::unique_ptr<Node> parse_else();
   std::unique_ptr<Node> parse_for();
   std::unique_ptr<Node> parse_while();
+  std::unique_ptr<Node> parse_print();
+  std::unique_ptr<Node> parse_var(TokenType var_type);
 };

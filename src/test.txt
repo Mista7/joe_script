@@ -1,11 +1,35 @@
-joePrint("Hello Gang");
-joeReturn -67;
-
-
-if (1 > 2**2) {
-  1 ++ 2;
-  }
-
-
-joePrint("yessisierie is ojdfjdslkjadljfaldjal;sdk jalsdjf alsdkjf aldjfal sdjfl asdjla jdflkajsdflaksdjf alsdk sdf alsdkjf aldj ");
-
+joeInt x = 5;
+joeFloat y = 3.14;
+joeBool flag = true;
+joeStr name = "hello";
+joeInt result = x + 2 * 3;
+joeInt neg = -5;
+joeBool notflag = !flag;
+joeIf (x > 3) {
+    joeInt inner = x + 1;
+    joePrint(inner);
+    joeReturn x;
+}
+joeIf (x == 5) {
+    joePrint(x);
+}
+joeElif (x > 3) {
+    joePrint(y);
+}
+joeElse {
+    joePrint(name);
+}
+joeWhile (x > 0) {
+    x -= 1;
+    joePrint(x);
+}
+joeFor (joeInt i = 0; i < 10; i += 1) {
+    joePrint(i);
+}
+joeInt complex = x + y * 2 - neg / 3;
+joeIf (flag == true) {
+    joeIf (x > 0) {
+        joePrint(x);
+    }
+}
+joeReturn result;

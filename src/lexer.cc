@@ -52,7 +52,7 @@ std::vector<Token> Tokenizer::tokenize() {
       } else if (curr_token.value == "joeElif") {
         curr_token.type = TokenType::elif_;
       } else if (curr_token.value == "joeIf") {
-        curr_token.type = TokenType::_if;
+        curr_token.type = TokenType::if_;
       } else if (curr_token.value == "joeBreak") {
         curr_token.type = TokenType::break_;
       } else if (curr_token.value == "joeContinue") {
@@ -67,9 +67,11 @@ std::vector<Token> Tokenizer::tokenize() {
         curr_token.type = TokenType::arr_;
       } else if (curr_token.value == "joeFloat") {
         curr_token.type = TokenType::float_;
-      }
-
-      else {
+      } else if (curr_token.value == "true") {
+        curr_token.type = TokenType::true_;
+      } else if (curr_token.value == "false") {
+        curr_token.type = TokenType::false_;
+      } else {
         curr_token.type = TokenType::var;
       }
 

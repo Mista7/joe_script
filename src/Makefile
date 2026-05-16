@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -g
 
 TARGET = compiler
 
-SRCS = main.cc lexer.cc
+SRCS = main.cc lexer.cc parser.cc
 
 $(TARGET): $(SRCS)
 	$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
