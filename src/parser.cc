@@ -389,10 +389,14 @@ std::unique_ptr<Node> Parser::parse_var(TokenType var_type) {
 
   } else {
     Token var = consume();
-
-    if (peek().has_value() && peek()->type == TokenType::assign) {
+    std::string var_name = var.value.value();
+    if (peek().has_value() && peek()->type == TokenType::semi) {
       consume();
-      std::string var_name = var.value.value();
+      return std::make_unique<Var_Node>(var_name, nullptr, var_type, false);
+    }
+
+    else if (peek().has_value() && peek()->type == TokenType::assign) {
+      consume();
       std::unique_ptr<Node> val = parse_expr();
 
       if (peek()->type == TokenType::semi) {

@@ -1,4 +1,4 @@
-joeInt x = 5;
+joeInt x = 15;
 joeFloat y = 3.14;
 joeBool flag = true;
 joeStr name = "hello";
@@ -26,7 +26,7 @@ joeWhile (x > 0) {
 joeFor (joeInt i = 0; i < 10; i += 1) {
     joePrint(i);
 }
-joeInt complex = x + y * 2 - neg / 3;
+joeFloat complex = x + y * 2 - neg / 3;
 joeIf (flag == true) {
     joeIf (x > 0) {
         joePrint(x);

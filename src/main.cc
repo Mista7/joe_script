@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "parser.h"
+#include "semantics.h"
 #include <cctype>
 #include <fstream>
 #include <iostream>
@@ -147,7 +148,17 @@ int main() {
 
   Parser ast(tokens);
   std::unique_ptr<Root_Node> root = ast.parser();
+
+  // Print AST
   print_node(root.get());
+
+  // Run semantic analysis
+  Semantics sem(std::move(root));
+  sem.scan();
+
+  std::cout << "\nSemantic analysis complete.\n";
+
+  return 0;
 
   return 0;
 }
