@@ -1,4 +1,4 @@
-joeInt x = 15;
+joeBool x = 15;
 joeFloat y = 3.14;
 joeBool flag = true;
 joeStr name = "hello";

@@ -159,6 +159,4 @@ int main() {
   std::cout << "\nSemantic analysis complete.\n";
 
   return 0;
-
-  return 0;
 }
