@@ -66,6 +66,7 @@ enum class TokenType {
   bit_or,
   bit_and,
   err,
+  fn,
 };
 
 struct Token {

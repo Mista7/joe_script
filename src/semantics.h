@@ -21,6 +21,8 @@ public:
   TokenType scan_expr(Node *node);
   TokenType scan_unary_expr(Node *node);
   void scan_print(Node *node);
+  void scan_function_decl(Node *node);
+  TokenType scan_function_call(Node *node);
 
   var_table vars;
 

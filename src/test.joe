@@ -1,1 +1,20 @@
-joeReturn 67;
+joePrint(67);
+
+joeInt i = 60;
+joeInt j = 7;
+
+joePrint(i+j);
+
+joeInt add(joeInt a, joeInt b){
+    joePrint(a+b);
+    joeReturn a+b;
+  }
+
+joeStr pnt(joeStr a, joeStr b){
+    joePrint(a);
+    joePrint(b);
+  }
+add(i,j);
+pnt("6","7");
+
+joePrint(add(i,j));

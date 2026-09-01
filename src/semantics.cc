@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <iostream>
 
+TokenType to_base_type(TokenType type);
 void Semantics::scan() {
   std::size_t i = 0;
   while (i < m_root->m_children.size()) {
@@ -14,10 +15,75 @@ void Semantics::scan() {
   }
 }
 
+void Semantics::scan_function_decl(Node *node) {
+  auto func = static_cast<FunctionDecl_Node *>(node);
+
+  // 1. Build the signature and register it globally
+  Func_Info info;
+  info.return_type = func->m_return_type;
+  for (const auto &param : func->m_params) {
+    info.param_types.push_back(param.first);
+  }
+
+  if (vars.search_func(func->m_name).has_value()) {
+    std::cerr << "Function already declared: " << func->m_name << std::endl;
+    return;
+  }
+  vars.add_func(func->m_name, info);
+
+  // 2. Push a new scope for the function body
+  vars.push_scope();
+
+  // 3. Add parameters to the local scope as assigned variables
+  for (const auto &param : func->m_params) {
+    Var_Info param_var(param.first, true, param.second);
+    vars.add_local(param_var);
+  }
+
+  // 4. Scan the body
+  scan_body(func->m_body.get());
+
+  // 5. Pop the scope
+  vars.pop_scope();
+}
+
+TokenType Semantics::scan_function_call(Node *node) {
+  auto call = static_cast<FunctionCall_Node *>(node);
+
+  auto opt_func = vars.search_func(call->m_name);
+  if (!opt_func.has_value()) {
+    std::cerr << "Function not declared: " << call->m_name << std::endl;
+    return TokenType::err;
+  }
+
+  Func_Info info = opt_func.value();
+
+  if (info.param_types.size() != call->m_args.size()) {
+    std::cerr << "Argument count mismatch for " << call->m_name << ". Expected "
+              << info.param_types.size() << ", got " << call->m_args.size()
+              << std::endl;
+    return TokenType::err;
+  }
+
+  for (size_t i = 0; i < call->m_args.size(); i++) {
+    TokenType arg_type = scan_expr(call->m_args[i].get());
+    if (to_base_type(arg_type) != to_base_type(info.param_types[i])) {
+      std::cerr << "Type mismatch in argument " << i << " for function "
+                << call->m_name << std::endl;
+    }
+  }
+
+  return info.return_type;
+}
+
 void Semantics::scan_statement(Node *child) {
   auto type = child->m_type;
   if (type == Node_Type::if_ || type == Node_Type::elif_) {
     scan_if(child);
+  }
+
+  else if (type == Node_Type::func_decl) {
+    scan_function_decl(child);
   }
 
   else if (type == Node_Type::while_) {
@@ -190,6 +256,10 @@ TokenType Semantics::scan_expr(Node *node) {
   auto type = node->m_type;
   if (type == Node_Type::bool_lit) {
     return TokenType::bool_lit;
+  }
+
+  else if (type == Node_Type::func_call) {
+    return scan_function_call(node);
   }
 
   else if (type == Node_Type::int_lit) {

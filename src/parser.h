@@ -36,6 +36,8 @@ enum class Node_Type {
   int_lit,
   bool_lit,
   float_lit,
+  func_decl,
+  func_call,
 };
 
 class Node {
@@ -51,11 +53,49 @@ class Root_Node : public Node {
 public:
   Root_Node() : Node(Node_Type::root) {};
   std::vector<std::unique_ptr<Node>> m_children;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
+};
+
+class Body_Node : public Node {
+public:
+  Body_Node(std::vector<std::unique_ptr<Node>> items)
+      : Node(Node_Type::body), m_items(std::move(items)) {};
+
+  std::vector<std::unique_ptr<Node>> m_items;
+  // virtual Value *codegen() override;
+  virtual llvm::Value *accept(Visitor *v) const override;
+
+private:
+};
+
+class FunctionDecl_Node : public Node {
+public:
+  FunctionDecl_Node(TokenType return_type, const std::string &name,
+                    std::vector<std::pair<TokenType, std::string>> params,
+                    std::unique_ptr<Body_Node> body)
+      : Node(Node_Type::func_decl), m_return_type(return_type), m_name(name),
+        m_params(std::move(params)), m_body(std::move(body)) {};
+
+  TokenType m_return_type; // Added this to store joeType
+  std::string m_name;
+  std::vector<std::pair<TokenType, std::string>> m_params;
+  std::unique_ptr<Body_Node> m_body;
+
+  virtual llvm::Value *accept(Visitor *v) const override;
+};
+
+class FunctionCall_Node : public Node {
+public:
+  FunctionCall_Node(const std::string &name,
+                    std::vector<std::unique_ptr<Node>> args)
+      : Node(Node_Type::func_call), m_name(name), m_args(std::move(args)) {};
+
+  std::string m_name;
+  std::vector<std::unique_ptr<Node>> m_args;
+
+  virtual llvm::Value *accept(Visitor *v) const override;
 };
 
 class If_Node : public Node {
@@ -67,9 +107,7 @@ public:
   std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Node>> m_next;
 
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
 };
@@ -82,9 +120,7 @@ public:
   std::unique_ptr<Node> m_condition;
   std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Node>> m_next;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
 };
@@ -94,9 +130,7 @@ public:
   Else_Node(std::unique_ptr<Node> body)
       : Node(Node_Type::else_), m_body(std::move(body)) {};
   std::unique_ptr<Node> m_body;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
 };
@@ -106,9 +140,7 @@ public:
   Return_Node(std::unique_ptr<Node> val)
       : Node(Node_Type::ret), m_value(std::move(val)) {};
   std::unique_ptr<Node> m_value;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
 };
@@ -122,9 +154,7 @@ public:
   std::unique_ptr<Node> m_condition;
   std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Else_Node>> m_else;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
 };
@@ -142,23 +172,7 @@ public:
   std::unique_ptr<Node> m_incr;
   std::unique_ptr<Node> m_body;
   std::optional<std::unique_ptr<Else_Node>> m_else;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
-
-private:
-};
-
-class Body_Node : public Node {
-public:
-  Body_Node(std::vector<std::unique_ptr<Node>> items)
-      : Node(Node_Type::body), m_items(std::move(items)) {};
-
-  std::vector<std::unique_ptr<Node>> m_items;
-  // virtual Value *codegen() override;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
 
 private:
 };
@@ -168,9 +182,7 @@ public:
   Print_Node(std::unique_ptr<Node> child)
       : Node(Node_Type::print_), m_child(std::move(child)) {};
   std::unique_ptr<Node> m_child;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -180,9 +192,7 @@ class Strlit_Node : public Node {
 public:
   Strlit_Node(const std::string &val) : Node(Node_Type::str_lit), m_val(val) {};
   std::string m_val;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -192,9 +202,7 @@ class Intlit_Node : public Node {
 public:
   Intlit_Node(int val) : Node(Node_Type::int_lit), m_val(val) {};
   int m_val;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -204,9 +212,7 @@ class Boollit_Node : public Node {
 public:
   Boollit_Node(bool val) : Node(Node_Type::bool_lit), m_val(val) {};
   bool m_val;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -216,9 +222,7 @@ class Charlit_Node : public Node {
 public:
   Charlit_Node(char val) : Node(Node_Type::char_lit), m_val(val) {};
   char m_val;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -228,9 +232,7 @@ class Floatlit_Node : public Node {
 public:
   Floatlit_Node(float val) : Node(Node_Type::float_lit), m_val(val) {};
   float m_val;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -247,9 +249,7 @@ public:
   std::unique_ptr<Node> m_val;
   TokenType m_type;
   bool m_assigned;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -260,9 +260,7 @@ public:
   VarRef_Node(const std::string &name)
       : Node(Node_Type::var_ref), m_name(name) {};
   std::string m_name;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -278,9 +276,7 @@ public:
   std::unique_ptr<Node> m_left;
   TokenType m_op;
   std::unique_ptr<Node> m_right;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -293,9 +289,7 @@ public:
 
   TokenType m_op;
   std::unique_ptr<Node> m_right;
-  virtual llvm::Value *accept(Visitor *v) const override {
-    return v->visit(this);
-  }
+  virtual llvm::Value *accept(Visitor *v) const override;
   // virtual Value *codegen() override;
 
 private:
@@ -323,4 +317,5 @@ private:
   std::unique_ptr<Node> parse_while();
   std::unique_ptr<Node> parse_print();
   std::unique_ptr<Node> parse_var(TokenType var_type);
+  std::unique_ptr<Node> parse_function_decl(TokenType return_type);
 };

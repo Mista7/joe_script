@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "codegen.h"
 #include "lexer.h"
 #include <cstddef>
 #include <iostream>
@@ -7,6 +8,34 @@
 #include <ostream>
 #include <string>
 #include <vector>
+
+// Define the visitor pattern accept methods for ALL nodes here
+llvm::Value *Root_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *FunctionDecl_Node::accept(Visitor *v) const {
+  return v->visit(this);
+}
+llvm::Value *FunctionCall_Node::accept(Visitor *v) const {
+  return v->visit(this);
+}
+llvm::Value *If_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Elif_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Else_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Return_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *While_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *For_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Body_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Print_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Strlit_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Intlit_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Boollit_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Charlit_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Floatlit_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Var_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *VarRef_Node::accept(Visitor *v) const { return v->visit(this); }
+llvm::Value *Expression_Node::accept(Visitor *v) const {
+  return v->visit(this);
+}
+llvm::Value *Unary_Node::accept(Visitor *v) const { return v->visit(this); }
 
 std::optional<Token> Parser::peek(int offset) const {
   if (m_tokens.size() <= (offset + m_index)) {
@@ -38,7 +67,15 @@ std::unique_ptr<Root_Node> Parser::parser() {
       else if (type == TokenType::float_ || type == TokenType::int_ ||
                type == TokenType::bool_ || type == TokenType::arr_ ||
                type == TokenType::str_) {
-        root->m_children.push_back(parse_var(consume().type));
+
+        if (peek(1).has_value() && peek(1)->type == TokenType::var &&
+            peek(2).has_value() && peek(2)->type == TokenType::round_open) {
+          // It's a function! Consume the type and pass it down.
+          root->m_children.push_back(parse_function_decl(consume().type));
+        } else {
+          // It's a variable!
+          root->m_children.push_back(parse_var(consume().type));
+        }
       }
 
       else if (type == TokenType::if_) {
@@ -63,10 +100,19 @@ std::unique_ptr<Root_Node> Parser::parser() {
 
       else if (type == TokenType::print) {
         root->m_children.push_back(parse_print());
-      } else {
-        std::cerr << "Unknown token type: " << static_cast<int>(type)
-                  << std::endl;
-        return nullptr;
+      }
+
+      // ADD THIS TO HANDLE GLOBAL EXPRESSIONS/CALLS
+      else {
+        root->m_children.push_back(parse_expr(0));
+
+        if (peek().has_value() && peek()->type == TokenType::semi) {
+          consume();
+        } else {
+          std::cerr << "Missing semicolon after expression at global scope"
+                    << std::endl;
+          return nullptr;
+        }
       }
     }
   }
@@ -190,6 +236,33 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
   }
 
   else if (token.type == TokenType::var) {
+    if (peek().has_value() && peek()->type == TokenType::round_open) {
+      consume(); // Consume '('
+      std::vector<std::unique_ptr<Node>> args;
+
+      // Parse arguments until we hit ')'
+      if (peek().has_value() && peek()->type != TokenType::round_close) {
+        while (true) {
+          args.push_back(parse_expr(0));
+
+          if (peek().has_value() && peek()->type == TokenType::comma) {
+            consume(); // Consume ',' and move to next argument
+          } else {
+            break; // No comma means we should be at the end
+          }
+        }
+      }
+
+      if (peek().has_value() && peek()->type == TokenType::round_close) {
+        consume(); // Consume ')'
+      } else {
+        std::cerr << "Missing ')' in function call" << std::endl;
+      }
+
+      return std::make_unique<FunctionCall_Node>(token.value.value(),
+                                                 std::move(args));
+    }
+
     return std::make_unique<VarRef_Node>(token.value.value());
   }
 
@@ -412,4 +485,53 @@ std::unique_ptr<Node> Parser::parse_var(TokenType var_type) {
       return nullptr;
     }
   }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Parses Function declaration and calls
+
+std::unique_ptr<Node> Parser::parse_function_decl(TokenType return_type) {
+  // We no longer consume the first token here because the main loop already
+  // consumed the 'joeType'
+
+  if (!peek().has_value() || peek()->type != TokenType::var) {
+    std::cerr << "Expected function name after return type" << std::endl;
+    return nullptr;
+  }
+  std::string func_name = consume().value.value();
+
+  if (!peek().has_value() || peek()->type != TokenType::round_open) {
+    std::cerr << "Expected '(' after function name" << std::endl;
+    return nullptr;
+  }
+  consume(); // Consume '('
+
+  std::vector<std::pair<TokenType, std::string>> params;
+  while (peek().has_value() && peek()->type != TokenType::round_close) {
+    TokenType param_type = consume().type; // Consume the joeType
+
+    if (!peek().has_value() || peek()->type != TokenType::var) {
+      std::cerr << "Expected parameter name" << std::endl;
+      return nullptr;
+    }
+    std::string param_name = consume().value.value();
+
+    params.push_back({param_type, param_name});
+
+    if (peek().has_value() && peek()->type == TokenType::comma) {
+      consume(); // Consume ',' and keep looping
+    } else if (peek()->type != TokenType::round_close) {
+      std::cerr << "Expected ',' or ')' in parameter list" << std::endl;
+      return nullptr;
+    }
+  }
+
+  if (peek().has_value() && peek()->type == TokenType::round_close) {
+    consume(); // Consume ')'
+  }
+
+  std::unique_ptr<Body_Node> body = parse_body();
+
+  return std::make_unique<FunctionDecl_Node>(
+      return_type, func_name, std::move(params), std::move(body));
 }

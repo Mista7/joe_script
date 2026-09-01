@@ -69,7 +69,11 @@ std::vector<Token> Tokenizer::tokenize() {
         curr_token.type = TokenType::float_;
       } else if (curr_token.value == "true") {
         curr_token.type = TokenType::true_;
-      } else if (curr_token.value == "false") {
+      } else if (curr_token.value == "joeFunc") {
+        curr_token.type = TokenType::fn;
+      }
+
+      else if (curr_token.value == "false") {
         curr_token.type = TokenType::false_;
       } else {
         curr_token.type = TokenType::var;

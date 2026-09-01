@@ -9,6 +9,12 @@
 #include <string>
 #include <vector>
 
+struct Func_Info {
+  std::vector<TokenType> param_types;
+  TokenType
+      return_type; // Defaulting to int_ since your syntax omits return types
+};
+
 class Var_Info {
 public:
   Var_Info(TokenType type, bool has_value, std::string name)
@@ -30,6 +36,14 @@ private:
 
 class var_table {
 public:
+  void add_func(const std::string &name, Func_Info info) {
+    m_funcs[name] = info;
+  }
+  std::optional<Func_Info> search_func(const std::string &name) {
+    if (m_funcs.find(name) != m_funcs.end())
+      return m_funcs[name];
+    return std::nullopt;
+  }
   var_table() { push_scope(); }
   void push_scope();
   void pop_scope();
@@ -42,6 +56,7 @@ public:
 
 private:
   std::vector<std::map<std::string, Var_Info>> m_table;
+  std::map<std::string, Func_Info> m_funcs;
   // void push_scope();
   // void pop_scope();
   // void add_global(std::string name, Var_Info var);

@@ -1,13 +1,28 @@
+#include "codegen.h"
 #include "lexer.h"
 #include "parser.h"
 #include "semantics.h"
+
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Host.h"
+
 #include <cctype>
+#include <cstdlib> // For std::system
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
 
+// How to compile:
+// clang++ -g -O3 *.cc `llvm-config --cxxflags --ldflags --system-libs --libs
+// core native` -o joec
 void print_node(const Node *node, int depth = 0) {
   if (node == nullptr) {
     return;
@@ -18,6 +33,22 @@ void print_node(const Node *node, int depth = 0) {
     std::cout << indent << "Root" << std::endl;
     for (const auto &child : static_cast<const Root_Node *>(node)->m_children) {
       print_node(child.get(), depth + 1);
+    }
+    break;
+  case Node_Type::func_decl:
+    std::cout << indent << "FuncDecl: "
+              << static_cast<const FunctionDecl_Node *>(node)->m_name
+              << std::endl;
+    print_node(static_cast<const FunctionDecl_Node *>(node)->m_body.get(),
+               depth + 1);
+    break;
+  case Node_Type::func_call:
+    std::cout << indent << "FuncCall: "
+              << static_cast<const FunctionCall_Node *>(node)->m_name
+              << std::endl;
+    for (const auto &arg :
+         static_cast<const FunctionCall_Node *>(node)->m_args) {
+      print_node(arg.get(), depth + 1);
     }
     break;
   case Node_Type::ret:
@@ -118,11 +149,16 @@ void print_node(const Node *node, int depth = 0) {
   }
 }
 
-int main() {
-  std::ifstream inputfile("test.txt");
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " <filename.joe>\n";
+    return 1;
+  }
+
+  std::ifstream inputfile(argv[1]);
 
   if (!inputfile.is_open()) {
-    std::cout << "ERROR";
+    std::cout << "ERROR: Could not open " << argv[1] << "\n";
     return 1;
   }
 
@@ -134,29 +170,95 @@ int main() {
     file += '\n';
   }
 
+  // Lexical Analysis
   Tokenizer tokenize_file(file);
   std::vector<Token> tokens = tokenize_file.tokenize();
 
-  for (auto &token : tokens) {
-    // std::cout << "Value: " << token.value.value_or("no value")
-    //           << " Line: " << token.line << std::endl;
-    //
-    std::cout << "Type: " << static_cast<int>(token.type)
-              << " Value: " << token.value.value_or("no value")
-              << " Line: " << token.line << std::endl;
-  }
-
+  // Parse into AST
   Parser ast(tokens);
   std::unique_ptr<Root_Node> root = ast.parser();
 
   // Print AST
+  std::cout << "--- Abstract Syntax Tree ---\n";
   print_node(root.get());
+
+  // Extract raw pointer because Semantics takes unique_ptr ownership via
+  // std::move
+  Root_Node *raw_root = root.get();
 
   // Run semantic analysis
   Semantics sem(std::move(root));
   sem.scan();
-
   std::cout << "\nSemantic analysis complete.\n";
+
+  // Run IR Code Generation
+  CodeGen codegen;
+  codegen.visit(raw_root);
+
+  std::cout << "\n--- Generated LLVM IR ---\n";
+  CodeGen::TheModule->print(llvm::errs(), nullptr);
+
+  // --- Object File Emission ---
+  llvm::InitializeAllTargetInfos();
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmParsers();
+  llvm::InitializeAllAsmPrinters();
+
+  std::string TargetTripleStr = llvm::sys::getDefaultTargetTriple();
+  llvm::Triple TargetTriple(
+      TargetTripleStr); // Explicitly create the Triple object
+  CodeGen::TheModule->setTargetTriple(TargetTriple);
+
+  std::string Error;
+  // Pass the explicit Triple object to lookupTarget
+  auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+  if (!Target) {
+    llvm::errs() << Error;
+    return 1;
+  }
+
+  auto CPU = "generic";
+  auto Features = "";
+  llvm::TargetOptions opt;
+  // Pass the explicit Triple object to createTargetMachine
+  auto TheTargetMachine = Target->createTargetMachine(
+      TargetTriple, CPU, Features, opt, llvm::Reloc::PIC_);
+  CodeGen::TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+
+  auto Filename = "output.o";
+  std::error_code EC;
+  llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::OF_None);
+  if (EC) {
+    llvm::errs() << "Could not open file: " << EC.message();
+    return 1;
+  }
+
+  llvm::legacy::PassManager pass;
+  auto FileType =
+      llvm::CodeGenFileType::ObjectFile; // Use llvm::CGFT_ObjectFile for older
+                                         // LLVM versions
+
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+    llvm::errs() << "TheTargetMachine can't emit a file of this type";
+    return 1;
+  }
+
+  pass.run(*CodeGen::TheModule);
+  dest.flush();
+
+  std::cout << "\nObject file compiled to " << Filename << "\n";
+
+  // Automate the linking step using the system's C compiler
+  std::cout << "Linking executable...\n";
+  int linkResult = std::system("clang output.o -o a.out");
+
+  if (linkResult == 0) {
+    std::cout << "Successfully linked! Run your program with ./a.out\n";
+  } else {
+    std::cerr << "Linking failed. Ensure clang or gcc is installed and "
+                 "available in your PATH.\n";
+  }
 
   return 0;
 }
