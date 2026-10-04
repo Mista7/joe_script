@@ -23,15 +23,19 @@
 // How to compile:
 // clang++ -g -O3 *.cc `llvm-config --cxxflags --ldflags --system-libs --libs
 // core native` -o joec
-void print_node(const Node *node, int depth = 0) {
-  if (node == nullptr) {
+void print_node(const Node *node, int depth = 0)
+{
+  if (node == nullptr)
+  {
     return;
   }
   std::string indent(depth * 2, ' ');
-  switch (node->m_type) {
+  switch (node->m_type)
+  {
   case Node_Type::root:
     std::cout << indent << "Root" << std::endl;
-    for (const auto &child : static_cast<const Root_Node *>(node)->m_children) {
+    for (const auto &child : static_cast<const Root_Node *>(node)->m_children)
+    {
       print_node(child.get(), depth + 1);
     }
     break;
@@ -47,7 +51,8 @@ void print_node(const Node *node, int depth = 0) {
               << static_cast<const FunctionCall_Node *>(node)->m_name
               << std::endl;
     for (const auto &arg :
-         static_cast<const FunctionCall_Node *>(node)->m_args) {
+         static_cast<const FunctionCall_Node *>(node)->m_args)
+    {
       print_node(arg.get(), depth + 1);
     }
     break;
@@ -139,7 +144,8 @@ void print_node(const Node *node, int depth = 0) {
     break;
   case Node_Type::body:
     std::cout << indent << "Body" << std::endl;
-    for (const auto &item : static_cast<const Body_Node *>(node)->m_items) {
+    for (const auto &item : static_cast<const Body_Node *>(node)->m_items)
+    {
       print_node(item.get(), depth + 1);
     }
     break;
@@ -149,15 +155,18 @@ void print_node(const Node *node, int depth = 0) {
   }
 }
 
-int main(int argc, char **argv) {
-  if (argc < 2) {
+int main(int argc, char **argv)
+{
+  if (argc < 2)
+  {
     std::cerr << "Usage: " << argv[0] << " <filename.joe>\n";
     return 1;
   }
 
   std::ifstream inputfile(argv[1]);
 
-  if (!inputfile.is_open()) {
+  if (!inputfile.is_open())
+  {
     std::cout << "ERROR: Could not open " << argv[1] << "\n";
     return 1;
   }
@@ -165,7 +174,8 @@ int main(int argc, char **argv) {
   std::string line;
   std::string file;
 
-  while (std::getline(inputfile, line)) {
+  while (std::getline(inputfile, line))
+  {
     file += line;
     file += '\n';
   }
@@ -208,12 +218,13 @@ int main(int argc, char **argv) {
   std::string TargetTripleStr = llvm::sys::getDefaultTargetTriple();
   llvm::Triple TargetTriple(
       TargetTripleStr); // Explicitly create the Triple object
-  CodeGen::TheModule->setTargetTriple(TargetTriple);
+  CodeGen::TheModule->setTargetTriple(TargetTripleStr);
 
   std::string Error;
   // Pass the explicit Triple object to lookupTarget
-  auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
-  if (!Target) {
+  auto Target = llvm::TargetRegistry::lookupTarget(TargetTripleStr, Error);
+  if (!Target)
+  {
     llvm::errs() << Error;
     return 1;
   }
@@ -223,13 +234,14 @@ int main(int argc, char **argv) {
   llvm::TargetOptions opt;
   // Pass the explicit Triple object to createTargetMachine
   auto TheTargetMachine = Target->createTargetMachine(
-      TargetTriple, CPU, Features, opt, llvm::Reloc::PIC_);
+      TargetTripleStr, CPU, Features, opt, llvm::Reloc::PIC_);
   CodeGen::TheModule->setDataLayout(TheTargetMachine->createDataLayout());
 
   auto Filename = "output.o";
   std::error_code EC;
   llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::OF_None);
-  if (EC) {
+  if (EC)
+  {
     llvm::errs() << "Could not open file: " << EC.message();
     return 1;
   }
@@ -239,7 +251,8 @@ int main(int argc, char **argv) {
       llvm::CodeGenFileType::ObjectFile; // Use llvm::CGFT_ObjectFile for older
                                          // LLVM versions
 
-  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType))
+  {
     llvm::errs() << "TheTargetMachine can't emit a file of this type";
     return 1;
   }
@@ -253,9 +266,12 @@ int main(int argc, char **argv) {
   std::cout << "Linking executable...\n";
   int linkResult = std::system("clang output.o -o a.out");
 
-  if (linkResult == 0) {
+  if (linkResult == 0)
+  {
     std::cout << "Successfully linked! Run your program with ./a.out\n";
-  } else {
+  }
+  else
+  {
     std::cerr << "Linking failed. Ensure clang or gcc is installed and "
                  "available in your PATH.\n";
   }

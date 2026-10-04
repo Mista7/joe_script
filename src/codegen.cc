@@ -181,6 +181,50 @@ llvm::Value *CodeGen::visit(const Expression_Node *n) {
 
 // Unary IR
 llvm::Value *CodeGen::visit(const Unary_Node *n) {
+  // 1. Handle ++ and -- by explicitly mutating memory
+  if (n->m_op == TokenType::plus_plus || n->m_op == TokenType::minus_minus) {
+    if (auto varRef = dynamic_cast<const VarRef_Node *>(n->m_right.get())) {
+      llvm::AllocaInst *Alloca = get_alloca(varRef->m_name);
+      if (!Alloca) {
+        std::cerr << "Unknown variable in increment/decrement: "
+                  << varRef->m_name << std::endl;
+        return nullptr;
+      }
+
+      // Load the current value from memory
+      llvm::Value *currentVal =
+          Builder->CreateLoad(Alloca->getAllocatedType(), Alloca);
+      bool isFloat = currentVal->getType()->isDoubleTy();
+
+      // Fix for ternary type mismatch: Use standard if/else
+      llvm::Value *one;
+      if (isFloat) {
+        one = llvm::ConstantFP::get(*TheContext, llvm::APFloat(1.0));
+      } else {
+        one = llvm::ConstantInt::get(*TheContext, llvm::APInt(32, 1, true));
+      }
+
+      llvm::Value *newVal = nullptr;
+      if (n->m_op == TokenType::plus_plus) {
+        newVal = isFloat ? Builder->CreateFAdd(currentVal, one, "incflt")
+                         : Builder->CreateAdd(currentVal, one, "incint");
+      } else {
+        newVal = isFloat ? Builder->CreateFSub(currentVal, one, "decflt")
+                         : Builder->CreateSub(currentVal, one, "decint");
+      }
+
+      Builder->CreateStore(newVal, Alloca);
+
+      // POSTFIX (j++) returns the original value. PREFIX (++j) returns the new
+      // value.
+      return n->m_is_postfix ? currentVal : newVal;
+    }
+
+    std::cerr << "++ and -- can only be applied to variables." << std::endl;
+    return nullptr;
+  }
+
+  // 2. Handle standard unary operators (! and -)
   llvm::Value *Operand = n->m_right->accept(this);
   if (!Operand)
     return nullptr;

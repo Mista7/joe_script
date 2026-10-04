@@ -174,6 +174,9 @@ int infix_bp(Token token) {
     return 1;
   case TokenType::star_eq:
     return 1;
+  case TokenType::plus_plus:
+  case TokenType::minus_minus:
+    return 20; // Highest precedence
   default:
     return 0;
   }
@@ -276,6 +279,10 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
 // Parses infix of an expression
 std::unique_ptr<Node> Parser::parse_infix(std::unique_ptr<Node> left,
                                           Token op) {
+  if (op.type == TokenType::plus_plus || op.type == TokenType::minus_minus) {
+    return std::make_unique<Unary_Node>(op.type, std::move(left),
+                                        true); // true = is_postfix
+  }
   int op_bp = infix_bp(op);
   std::unique_ptr<Node> right;
 

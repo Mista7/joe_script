@@ -18,3 +18,8 @@ add(i,j);
 pnt("6","7");
 
 joePrint(add(i,j));
+
+joeWhile(j <=10){
+    joePrint("67");
+    ++j;
+  }

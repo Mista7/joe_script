@@ -1,0 +1,1 @@
+window.JOESCRIPT_API_URL = '';

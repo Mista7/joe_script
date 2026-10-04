@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f4ef">
+    <title>JoeScript Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/config.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="JoeScript Studio home">
+        <span class="brand-mark" aria-hidden="true">j<span>.</span></span>
+        <span>joe<span class="brand-light">script</span></span>
+      </a>
+      <div class="topbar-meta"><span class="live-dot"></span> JOESCRIPT WORKSPACE <span class="meta-divider">/</span> COMPILER READY</div>
+      <span class="source-link">LOCAL BUILD</span>
+    </header>
+
+    <main class="workspace">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">YOUR LANGUAGE, IN MOTION <span>01 / 01</span></p>
+          <h1 id="page-title">Write it. <span>Run it.</span></h1>
+          <p class="intro-copy">A small, hands-on workspace for JoeScript. Edit the program, compile it with the JoeScript service, and see what it prints.</p>
+        </div>
+        <div class="flow" aria-label="Write, compile, and inspect output">
+          <span><b>01</b> Write</span><i></i><span><b>02</b> Compile</span><i></i><span><b>03</b> Output</span>
+        </div>
+      </section>
+
+      <section class="workbench" aria-label="JoeScript editor and output">
+        <div class="panel editor-panel">
+          <div class="panel-heading">
+            <div class="file-tab"><span class="file-glyph">J</span> main.joe <span class="unsaved-indicator" id="unsaved-indicator" hidden>•</span></div>
+            <div class="editor-actions">
+              <span class="language-tag">JOESCRIPT</span>
+              <button class="icon-button" id="reset-button" type="button" title="Restore the starter program" aria-label="Restore starter program"><span aria-hidden="true">↺</span></button>
+            </div>
+          </div>
+          <div class="editor-body">
+            <div class="line-numbers" id="line-numbers" aria-hidden="true"></div>
+            <textarea id="source-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="JoeScript source code" wrap="off"></textarea>
+          </div>
+          <div class="editor-footer"><span><span class="footer-dot"></span> Ready to edit</span><span id="cursor-position">Ln 1, Col 1</span><span>UTF-8</span></div>
+        </div>
+
+        <div class="panel output-panel">
+          <div class="panel-heading output-heading">
+            <div class="output-title"><span class="terminal-icon" aria-hidden="true">&gt;_</span><span>Run output</span><span class="output-state" id="output-state">IDLE</span></div>
+            <button class="icon-button clear-button" id="clear-button" type="button" title="Clear output" aria-label="Clear output"><span aria-hidden="true">⌫</span></button>
+          </div>
+          <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Program output">
+            <div class="terminal-welcome"><span class="terminal-prompt">joe@studio <b>~</b> %</span><p>Your program's output will appear here.</p><p class="terminal-hint">Press <kbd>⌘</kbd><kbd>↵</kbd> or click <strong>Run program</strong>.</p></div>
+          </div>
+          <div class="runbar">
+            <div class="runbar-note"><span class="runbar-led"></span><span>Compiles and runs on JoeScript</span></div>
+            <button class="run-button" id="run-button" type="button"><span class="play-icon" aria-hidden="true">▶</span><span id="run-label">Run program</span><kbd>⌘ ↵</kbd></button>
+          </div>
+          <div class="output-footer"><span id="run-summary">No runs yet</span><span>JOESCRIPT RUNTIME</span></div>
+        </div>
+      </section>
+
+      <footer class="bottom-note"><span>Built for trying things.</span><span>JoeScript Studio <b>·</b> compiler service</span></footer>
+    </main>
+  </body>
+</html>

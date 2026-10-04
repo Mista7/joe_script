@@ -284,15 +284,14 @@ private:
 
 class Unary_Node : public Node {
 public:
-  Unary_Node(TokenType op, std::unique_ptr<Node> right)
-      : Node(Node_Type::un_expr), m_op(op), m_right(std::move(right)) {}
+  Unary_Node(TokenType op, std::unique_ptr<Node> right, bool is_postfix = false)
+      : Node(Node_Type::un_expr), m_op(op), m_right(std::move(right)),
+        m_is_postfix(is_postfix) {}
 
   TokenType m_op;
   std::unique_ptr<Node> m_right;
+  bool m_is_postfix;
   virtual llvm::Value *accept(Visitor *v) const override;
-  // virtual Value *codegen() override;
-
-private:
 };
 
 class Parser {

@@ -1,0 +1,12 @@
+.git
+.DS_Store
+build/
+build-dir/
+src/*.o
+src/compiler
+src/joe
+src/joec
+src/a.out
+src/output.o
+src/*.dSYM/
+src/frontend/dist/
