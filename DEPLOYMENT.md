@@ -4,9 +4,9 @@ The frontend is a static Vercel site. The compiler API runs separately in the Li
 
 ## Deploy the compiler API
 
-Create a Docker web service from this repository on a container host such as Render. Use the repository root as the build context and `Dockerfile` as the Dockerfile path. The service listens on the platform-provided `PORT` and exposes `GET /health` for its health check.
+The repository includes a Render Blueprint in `render.yaml`. After pushing it to GitHub, open Render's Blueprint creation flow, select this repository, and apply the blueprint. It creates a Docker web service named `joescript-api`, builds from the repository-root `Dockerfile`, and uses `/health` as its health check. The service listens on the platform-provided `PORT`.
 
-Set `ALLOWED_ORIGIN` to the exact production Vercel origin, with no trailing slash, for example `https://joescript-studio.vercel.app`. The API only enables cross-origin requests from that origin. For Vercel preview deployments, update this value to the preview origin you are testing.
+When Render prompts for `ALLOWED_ORIGIN`, set it to the exact production Vercel origin, with no trailing slash, for example `https://joe-script-frontend.vercel.app`. For Vercel preview deployments, the origin must also be configured to match the preview URL being tested.
 
 For a local image build and run:
 
