@@ -15,6 +15,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <string>
@@ -52,6 +53,8 @@ public:
   static std::unique_ptr<llvm::Module> TheModule;
   static std::unique_ptr<llvm::IRBuilder<>> Builder;
   static std::vector<std::map<std::string, llvm::AllocaInst *>> NamedValues;
+  // Number of errors reported while generating IR.
+  static int ErrorCount;
 
   virtual llvm::Value *visit(const Root_Node *n) override;
   virtual llvm::Value *visit(const If_Node *n) override;

@@ -45,8 +45,48 @@ std::optional<Token> Parser::peek(int offset) const {
 }
 
 Token Parser::consume() {
+  if (m_index >= m_tokens.size()) {
+    error(curr_line(),
+          "The file ended in the middle of a statement. You forgot to finish "
+          "something, probably a ')' or a ';'. Scroll up and look bro.");
+  }
   m_index++;
   return Parser::m_tokens.at(m_index - 1);
+}
+
+// Line of the token we're looking at (or the last token if we ran out)
+int Parser::curr_line() const {
+  if (peek().has_value()) {
+    return peek()->line;
+  }
+  if (!m_tokens.empty()) {
+    return m_tokens.back().line;
+  }
+  return 1;
+}
+
+// Reports a parse error and stops, the AST is cooked after this anyways
+void Parser::error(int line, const std::string &msg) const {
+  std::cerr << "Error on line " << line << ": " << msg << std::endl;
+  exit(1);
+}
+
+// Text of a token for error messages
+std::string tok_text(const std::optional<Token> &token) {
+  if (!token.has_value()) {
+    return "end of file";
+  }
+  if (token->type == TokenType::str_lit) {
+    return "\"" + token->value.value_or("") + "\"";
+  }
+  return token->value.value_or("?");
+}
+
+// Sets the source line of a node and hands it back
+template <typename T>
+std::unique_ptr<T> with_line(std::unique_ptr<T> node, int line) {
+  node->m_line = line;
+  return node;
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -109,8 +149,10 @@ std::unique_ptr<Root_Node> Parser::parser() {
         if (peek().has_value() && peek()->type == TokenType::semi) {
           consume();
         } else {
-          std::cerr << "Missing semicolon after expression at global scope"
-                    << std::endl;
+          error(curr_line(), "Missing ';' after this statement (got '" +
+                                 tok_text(peek()) +
+                                 "' instead). Every statement ends with a "
+                                 "semicolon, it's not optional gang.");
           return nullptr;
         }
       }
@@ -123,15 +165,16 @@ std::unique_ptr<Root_Node> Parser::parser() {
 /////////////////////////////////////////////////////////////////////////
 // Parses for Return Node
 std::unique_ptr<Return_Node> Parser::parse_ret() {
-  consume();
+  int line = consume().line;
   auto val = parse_expr();
   if (peek().has_value() && peek()->type == TokenType::semi) {
     consume();
   } else {
-    std::cerr << "Invalid return statement" << std::endl;
+    error(line, "Missing ';' after joeReturn (got '" + tok_text(peek()) +
+                    "' instead). Even returns need a semicolon son.");
   }
 
-  return std::make_unique<Return_Node>(std::move(val));
+  return with_line(std::make_unique<Return_Node>(std::move(val)), line);
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -197,34 +240,41 @@ int prefix_bp(Token token) {
 // Parse the prefix of an expression
 std::unique_ptr<Node> Parser::parse_prefix(Token token) {
   if (token.type == TokenType::int_lit) {
-    return std::make_unique<Intlit_Node>(std::stoi(token.value.value()));
+    return with_line(
+        std::make_unique<Intlit_Node>(std::stoi(token.value.value())),
+        token.line);
   }
 
   else if (token.type == TokenType::float_lit) {
-    return std::make_unique<Floatlit_Node>(std::stof(token.value.value()));
+    return with_line(
+        std::make_unique<Floatlit_Node>(std::stof(token.value.value())),
+        token.line);
   }
 
   else if (token.type == TokenType::true_) {
-    return std::make_unique<Boollit_Node>(true);
+    return with_line(std::make_unique<Boollit_Node>(true), token.line);
   }
 
   else if (token.type == TokenType::false_) {
-    return std::make_unique<Boollit_Node>(false);
+    return with_line(std::make_unique<Boollit_Node>(false), token.line);
   }
 
   else if (token.type == TokenType::str_lit) {
-    return std::make_unique<Strlit_Node>(token.value.value());
+    return with_line(std::make_unique<Strlit_Node>(token.value.value()),
+                     token.line);
   }
 
   else if (token.type == TokenType::char_lit) {
-    return std::make_unique<Charlit_Node>(token.value.value()[0]);
+    return with_line(std::make_unique<Charlit_Node>(token.value.value()[0]),
+                     token.line);
   }
 
   else if (token.type == TokenType::minus || token.type == TokenType::not_ ||
            token.type == TokenType::plus_plus ||
            token.type == TokenType::minus_minus) {
     std::unique_ptr<Node> right = parse_expr(prefix_bp(token));
-    return std::make_unique<Unary_Node>(token.type, std::move(right));
+    return with_line(std::make_unique<Unary_Node>(token.type, std::move(right)),
+                     token.line);
   }
 
   else if (token.type == TokenType::round_open) {
@@ -232,7 +282,8 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
     if (peek().has_value() && peek().value().type == TokenType::round_close) {
       consume();
     } else {
-      std::cerr << "Missing closing bracket monkey" << std::endl;
+      error(token.line, "You opened a '(' and never closed it (got '" +
+                            tok_text(peek()) + "' instead). Add a ')' monkey.");
       return nullptr;
     }
     return right;
@@ -259,18 +310,26 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
       if (peek().has_value() && peek()->type == TokenType::round_close) {
         consume(); // Consume ')'
       } else {
-        std::cerr << "Missing ')' in function call" << std::endl;
+        error(token.line, "Missing ')' at the end of the call to '" +
+                              token.value.value() + "' (got '" +
+                              tok_text(peek()) +
+                              "' instead). Close your brackets son.");
       }
 
-      return std::make_unique<FunctionCall_Node>(token.value.value(),
-                                                 std::move(args));
+      return with_line(std::make_unique<FunctionCall_Node>(token.value.value(),
+                                                           std::move(args)),
+                       token.line);
     }
 
-    return std::make_unique<VarRef_Node>(token.value.value());
+    return with_line(std::make_unique<VarRef_Node>(token.value.value()),
+                     token.line);
   }
 
   else {
-    std::cerr << "Expected Expression but got monkeyness" << std::endl;
+    error(token.line,
+          "Expected a value here (a number, string, variable or function "
+          "call) but got '" +
+              tok_text(token) + "'. That's straight monkeyness.");
     return nullptr;
   }
 }
@@ -280,8 +339,9 @@ std::unique_ptr<Node> Parser::parse_prefix(Token token) {
 std::unique_ptr<Node> Parser::parse_infix(std::unique_ptr<Node> left,
                                           Token op) {
   if (op.type == TokenType::plus_plus || op.type == TokenType::minus_minus) {
-    return std::make_unique<Unary_Node>(op.type, std::move(left),
-                                        true); // true = is_postfix
+    return with_line(std::make_unique<Unary_Node>(op.type, std::move(left),
+                                                  true), // true = is_postfix
+                     op.line);
   }
   int op_bp = infix_bp(op);
   std::unique_ptr<Node> right;
@@ -291,8 +351,9 @@ std::unique_ptr<Node> Parser::parse_infix(std::unique_ptr<Node> left,
   } else {
     right = parse_expr(op_bp);
   }
-  return std::make_unique<Expression_Node>(std::move(left), op.type,
-                                           std::move(right));
+  return with_line(std::make_unique<Expression_Node>(std::move(left), op.type,
+                                                     std::move(right)),
+                   op.line);
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -310,31 +371,38 @@ std::unique_ptr<Node> Parser::parse_expr(int min_bp) {
 /////////////////////////////////////////////////////////////////////////
 // Parses if or elif statements
 std::unique_ptr<Node> Parser::parse_if(Node_Type if_or_elif) {
-  consume();
+  int line = consume().line;
   std::unique_ptr<Node> cond = parse_expr();
   std::unique_ptr<Node> body = parse_body();
 
   if (if_or_elif == Node_Type::if_) {
-    return std::make_unique<If_Node>(std::move(cond), std::move(body));
+    return with_line(
+        std::make_unique<If_Node>(std::move(cond), std::move(body)), line);
   } else {
-    return std::make_unique<Elif_Node>(std::move(cond), std::move(body));
+    return with_line(
+        std::make_unique<Elif_Node>(std::move(cond), std::move(body)), line);
   }
 }
 
 /////////////////////////////////////////////////////////////////////////
 // Parses else
 std::unique_ptr<Node> Parser::parse_else() {
-  consume();
+  int line = consume().line;
   std::unique_ptr<Node> body = parse_body();
-  return std::make_unique<Else_Node>(std::move(body));
+  return with_line(std::make_unique<Else_Node>(std::move(body)), line);
 }
 
 /////////////////////////////////////////////////////////////////////////
 // Parses the body of statements/loops
 std::unique_ptr<Body_Node> Parser::parse_body() {
   std::vector<std::unique_ptr<Node>> body;
+  int open_line = curr_line();
   if (peek().has_value() && peek()->type == TokenType::curl_open) {
     consume();
+  } else {
+    error(open_line, "Expected a '{' to start this block but got '" +
+                         tok_text(peek()) +
+                         "'. Blocks look like { ... }, who taught you this.");
   }
   while (peek().has_value() && peek()->type != TokenType::curl_close) {
     TokenType type = peek()->type;
@@ -360,10 +428,13 @@ std::unique_ptr<Body_Node> Parser::parse_body() {
 
     else {
       body.push_back(parse_expr());
-      if (peek()->type == TokenType::semi) {
+      if (peek().has_value() && peek()->type == TokenType::semi) {
         consume();
       } else {
-        std::cerr << "Invalid statement" << std::endl;
+        error(curr_line(), "Missing ';' after this statement (got '" +
+                               tok_text(peek()) +
+                               "' instead). Semicolons aren't a suggestion "
+                               "gang.");
       }
     }
   }
@@ -372,28 +443,36 @@ std::unique_ptr<Body_Node> Parser::parse_body() {
 
     consume();
   } else {
-    std::cerr << "Missing close bracket" << std::endl;
+    error(curr_line(), "Missing '}' to close the block you opened on line " +
+                           std::to_string(open_line) +
+                           ". You left the door open bro.");
   }
 
-  return std::make_unique<Body_Node>(std::move(body));
+  return with_line(std::make_unique<Body_Node>(std::move(body)), open_line);
 }
 
 std::unique_ptr<Node> Parser::parse_while() {
-  consume();
+  int line = consume().line;
   std::unique_ptr<Node> cond = parse_expr();
   std::unique_ptr<Node> body = parse_body();
-  return std::make_unique<While_Node>(std::move(cond), std::move(body));
+  return with_line(
+      std::make_unique<While_Node>(std::move(cond), std::move(body)), line);
 }
 
 std::unique_ptr<Node> Parser::parse_for() {
-  consume();
+  int line = consume().line;
   if (peek().has_value() && peek()->type == TokenType::round_open) {
     consume();
   } else {
-    std::cerr << "Missing Bracket in for" << std::endl;
+    error(line, "joeFor needs a '(' right after it, like joeFor (joeInt i = "
+                "0; i < 10; ++i) { ... }. You gave it '" +
+                    tok_text(peek()) + "' instead.");
     return nullptr;
   }
 
+  if (!peek().has_value()) {
+    consume(); // Reports the end of file error
+  }
   TokenType type = peek()->type;
   std::unique_ptr<Node> init;
   if (type == TokenType::float_ || type == TokenType::int_ ||
@@ -402,7 +481,9 @@ std::unique_ptr<Node> Parser::parse_for() {
 
     init = parse_var(consume().type);
   } else {
-    std::cerr << "Invalid variable declaration in for loop" << std::endl;
+    error(line, "The first part of a joeFor has to declare a variable, like "
+                "joeInt i = 0; but you wrote '" +
+                    tok_text(peek()) + "'. Read the syntax gang.");
     return nullptr;
   }
 
@@ -417,7 +498,10 @@ std::unique_ptr<Node> Parser::parse_for() {
   if (peek().has_value() && peek()->type == TokenType::semi) {
     consume();
   } else {
-    std::cerr << "Missing semicolon in for loop" << std::endl;
+    error(line, "Missing ';' after the joeFor condition (got '" +
+                    tok_text(peek()) +
+                    "' instead). It goes joeFor (init; condition; "
+                    "increment), not whatever that was.");
     return nullptr;
   }
   std::unique_ptr<Node> incr = parse_expr();
@@ -425,21 +509,24 @@ std::unique_ptr<Node> Parser::parse_for() {
   if (peek().has_value() && peek()->type == TokenType::round_close) {
     consume();
   } else {
-    std::cerr << "Closing bracket missing" << std::endl;
+    error(line, "Missing ')' after the joeFor increment (got '" +
+                    tok_text(peek()) + "' instead). Close it up son.");
     return nullptr;
   }
 
   std::unique_ptr<Node> body = parse_body();
-  return std::make_unique<For_Node>(std::move(init), std::move(cond),
-                                    std::move(incr), std::move(body));
+  return with_line(std::make_unique<For_Node>(std::move(init), std::move(cond),
+                                              std::move(incr), std::move(body)),
+                   line);
 }
 
 std::unique_ptr<Node> Parser::parse_print() {
-  consume();
+  int line = consume().line;
   if (peek().has_value() && peek()->type == TokenType::round_open) {
     consume();
   } else {
-    std::cerr << "Missing open bracket for print" << std::endl;
+    error(line, "joePrint needs brackets, like joePrint(x); You gave it '" +
+                    tok_text(peek()) + "' instead. It's not Python bro.");
     return nullptr;
   }
 
@@ -448,23 +535,28 @@ std::unique_ptr<Node> Parser::parse_print() {
   if (peek().has_value() && peek()->type == TokenType::round_close) {
     consume();
   } else {
-    std::cerr << "Missing closing bracket for print" << std::endl;
+    error(line, "Missing ')' to close joePrint( (got '" + tok_text(peek()) +
+                    "' instead). joePrint only takes one value btw.");
     return nullptr;
   }
 
   if (peek().has_value() && peek()->type == TokenType::semi) {
     consume();
   } else {
-    std::cerr << "missing semicolon after print" << std::endl;
+    error(line, "Missing ';' after joePrint(...) (got '" + tok_text(peek()) +
+                    "' instead). So close yet so far.");
     return nullptr;
   }
 
-  return std::make_unique<Print_Node>(std::move(child));
+  return with_line(std::make_unique<Print_Node>(std::move(child)), line);
 }
 
 std::unique_ptr<Node> Parser::parse_var(TokenType var_type) {
-  if (peek().has_value() && peek()->type != TokenType::var) {
-    std::cerr << "Invalid variable name gang" << std::endl;
+  if (!peek().has_value() || peek()->type != TokenType::var) {
+    error(curr_line(),
+          "Expected a variable name after the type but got '" +
+              tok_text(peek()) +
+              "'. Names start with a letter and can't be a joe keyword gang.");
     return nullptr;
 
   } else {
@@ -472,23 +564,31 @@ std::unique_ptr<Node> Parser::parse_var(TokenType var_type) {
     std::string var_name = var.value.value();
     if (peek().has_value() && peek()->type == TokenType::semi) {
       consume();
-      return std::make_unique<Var_Node>(var_name, nullptr, var_type, false);
+      return with_line(
+          std::make_unique<Var_Node>(var_name, nullptr, var_type, false),
+          var.line);
     }
 
     else if (peek().has_value() && peek()->type == TokenType::assign) {
       consume();
       std::unique_ptr<Node> val = parse_expr();
 
-      if (peek()->type == TokenType::semi) {
+      if (peek().has_value() && peek()->type == TokenType::semi) {
         consume();
       } else {
-        std::cerr << "Missing semicolon after variable declaration"
-                  << std::endl;
+        error(var.line, "Missing ';' after declaring '" + var_name +
+                            "' (got '" + tok_text(peek()) +
+                            "' instead). Finish your statements son.");
       }
-      return std::make_unique<Var_Node>(var_name, std::move(val), var_type);
+      return with_line(
+          std::make_unique<Var_Node>(var_name, std::move(val), var_type),
+          var.line);
 
     } else {
-      std::cerr << "Improper assignment of variable" << std::endl;
+      error(var.line, "After declaring '" + var_name +
+                          "' you need either ';' or '= value;' but got '" +
+                          tok_text(peek()) +
+                          "'. What were you even cooking here.");
       return nullptr;
     }
   }
@@ -502,23 +602,37 @@ std::unique_ptr<Node> Parser::parse_function_decl(TokenType return_type) {
   // consumed the 'joeType'
 
   if (!peek().has_value() || peek()->type != TokenType::var) {
-    std::cerr << "Expected function name after return type" << std::endl;
+    error(curr_line(), "Expected a function name after the return type but "
+                       "got '" +
+                           tok_text(peek()) + "'. Name your function gang.");
     return nullptr;
   }
+  int line = peek()->line;
   std::string func_name = consume().value.value();
 
   if (!peek().has_value() || peek()->type != TokenType::round_open) {
-    std::cerr << "Expected '(' after function name" << std::endl;
+    error(line, "Expected '(' after the function name '" + func_name +
+                    "' but got '" + tok_text(peek()) + "'.");
     return nullptr;
   }
   consume(); // Consume '('
 
   std::vector<std::pair<TokenType, std::string>> params;
   while (peek().has_value() && peek()->type != TokenType::round_close) {
-    TokenType param_type = consume().type; // Consume the joeType
+    TokenType param_type = peek()->type;
+    if (param_type != TokenType::float_ && param_type != TokenType::int_ &&
+        param_type != TokenType::bool_ && param_type != TokenType::arr_ &&
+        param_type != TokenType::str_) {
+      error(curr_line(), "Parameters of '" + func_name +
+                             "' need a type, like joeInt a. '" +
+                             tok_text(peek()) + "' is not a type bro.");
+    }
+    consume(); // Consume the joeType
 
     if (!peek().has_value() || peek()->type != TokenType::var) {
-      std::cerr << "Expected parameter name" << std::endl;
+      error(curr_line(), "Expected a parameter name in '" + func_name +
+                             "' but got '" + tok_text(peek()) +
+                             "'. Types need names, like joeInt a.");
       return nullptr;
     }
     std::string param_name = consume().value.value();
@@ -527,18 +641,25 @@ std::unique_ptr<Node> Parser::parse_function_decl(TokenType return_type) {
 
     if (peek().has_value() && peek()->type == TokenType::comma) {
       consume(); // Consume ',' and keep looping
-    } else if (peek()->type != TokenType::round_close) {
-      std::cerr << "Expected ',' or ')' in parameter list" << std::endl;
+    } else if (!peek().has_value() || peek()->type != TokenType::round_close) {
+      error(curr_line(), "Expected ',' or ')' in the parameter list of '" +
+                             func_name + "' but got '" + tok_text(peek()) +
+                             "'. Separate your parameters with commas.");
       return nullptr;
     }
   }
 
   if (peek().has_value() && peek()->type == TokenType::round_close) {
     consume(); // Consume ')'
+  } else {
+    error(line, "The parameter list of '" + func_name +
+                    "' never got closed with ')'.");
   }
 
   std::unique_ptr<Body_Node> body = parse_body();
 
-  return std::make_unique<FunctionDecl_Node>(
-      return_type, func_name, std::move(params), std::move(body));
+  return with_line(std::make_unique<FunctionDecl_Node>(return_type, func_name,
+                                                       std::move(params),
+                                                       std::move(body)),
+                   line);
 }

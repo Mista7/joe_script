@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "symbol-table.h"
+#include <iostream>
 #include <memory>
 
 class Semantics {
@@ -26,6 +27,13 @@ public:
 
   var_table vars;
 
+  // Number of semantic errors reported during scan().
+  int error_count() const { return m_error_count; }
+
 private:
+  // Records a semantic error on a line and returns the stream to write its
+  // message to.
+  std::ostream &error(int line);
+  int m_error_count = 0;
   std::unique_ptr<Root_Node> m_root;
 };

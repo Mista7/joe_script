@@ -45,6 +45,7 @@ public:
   Node(Node_Type n) : m_type(n) {};
   virtual ~Node() = default;
   Node_Type m_type;
+  int m_line = 0; // Source line the node came from (for error messages)
   virtual llvm::Value *accept(Visitor *v) const = 0;
 };
 
@@ -305,6 +306,8 @@ private:
   const std::vector<Token> m_tokens;
   std::optional<Token> peek(int offset = 0) const;
   Token consume();
+  int curr_line() const;
+  [[noreturn]] void error(int line, const std::string &msg) const;
   std::unique_ptr<Return_Node> parse_ret();
   std::unique_ptr<Node> parse_expr(int min_bp = 0);
   std::unique_ptr<Node> parse_prefix(Token token);

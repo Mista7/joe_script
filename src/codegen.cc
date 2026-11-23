@@ -12,6 +12,15 @@ std::unique_ptr<llvm::IRBuilder<>> CodeGen::Builder =
 
 std::vector<std::map<std::string, llvm::AllocaInst *>> CodeGen::NamedValues;
 
+int CodeGen::ErrorCount = 0;
+
+// Records a codegen error on a line and returns the stream to write its
+// message to.
+static std::ostream &codegen_error(int line) {
+  ++CodeGen::ErrorCount;
+  return std::cerr << "Error on line " << line << ": ";
+}
+
 void push_codegen_scope() {
   CodeGen::NamedValues.push_back(std::map<std::string, llvm::AllocaInst *>());
 }
@@ -75,7 +84,11 @@ llvm::Value *CodeGen::visit(const Var_Node *n) {
   }
 
   if (!varType) {
-    std::cerr << "Unknown type for LLVM allocation: " << n->m_name << std::endl;
+    codegen_error(n->m_line)
+        << "'" << n->m_name
+        << "' uses a type JoeScript can't compile yet. Stick to joeInt, "
+           "joeFloat, joeBool and joeStr for now gang."
+        << std::endl;
     return nullptr;
   }
 
@@ -103,8 +116,12 @@ llvm::Value *CodeGen::visit(const Var_Node *n) {
 llvm::Value *CodeGen::visit(const VarRef_Node *n) {
   llvm::AllocaInst *Alloca = get_alloca(n->m_name);
   if (!Alloca) {
-    std::cerr << "Unknown variable referenced in codegen: " << n->m_name
-              << std::endl;
+    codegen_error(n->m_line)
+        << "Couldn't find the variable '" << n->m_name
+        << "' while generating code. If it was declared outside this "
+           "function, functions can't see those yet, pass it in as a "
+           "parameter."
+        << std::endl;
     return nullptr;
   }
 
@@ -122,14 +139,19 @@ llvm::Value *CodeGen::visit(const Expression_Node *n) {
       llvm::Value *rightVal = n->m_right->accept(this);
       llvm::AllocaInst *Alloca = get_alloca(varRef->m_name);
       if (!Alloca) {
-        std::cerr << "Unknown variable assignment: " << varRef->m_name
-                  << std::endl;
+        codegen_error(n->m_line)
+            << "Couldn't find the variable '" << varRef->m_name
+            << "' to assign to. If it was declared outside this function, "
+               "functions can't see those yet, pass it in as a parameter."
+            << std::endl;
         return nullptr;
       }
       Builder->CreateStore(rightVal, Alloca);
       return rightVal;
     }
-    std::cerr << "Invalid left-hand side of assignment." << std::endl;
+    codegen_error(n->m_line) << "The left side of '=' has to be a variable. "
+                                "You can't assign to that bro."
+                             << std::endl;
     return nullptr;
   }
 
@@ -174,7 +196,10 @@ llvm::Value *CodeGen::visit(const Expression_Node *n) {
     return isFloat ? Builder->CreateFCmpUGE(L, R, "getmp")
                    : Builder->CreateICmpSGE(L, R, "getmp");
   default:
-    std::cerr << "Invalid binary operator." << std::endl;
+    codegen_error(n->m_line)
+        << "This operator can't be compiled yet (only + - * / and "
+           "comparisons work right now). Skill issue on our end gang."
+        << std::endl;
     return nullptr;
   }
 }
@@ -186,8 +211,9 @@ llvm::Value *CodeGen::visit(const Unary_Node *n) {
     if (auto varRef = dynamic_cast<const VarRef_Node *>(n->m_right.get())) {
       llvm::AllocaInst *Alloca = get_alloca(varRef->m_name);
       if (!Alloca) {
-        std::cerr << "Unknown variable in increment/decrement: "
-                  << varRef->m_name << std::endl;
+        codegen_error(n->m_line)
+            << "Couldn't find the variable '" << varRef->m_name
+            << "' to increment/decrement. Declare it first bro." << std::endl;
         return nullptr;
       }
 
@@ -220,7 +246,10 @@ llvm::Value *CodeGen::visit(const Unary_Node *n) {
       return n->m_is_postfix ? currentVal : newVal;
     }
 
-    std::cerr << "++ and -- can only be applied to variables." << std::endl;
+    codegen_error(n->m_line)
+        << "++ and -- only work on variables, like ++count. You can't "
+           "increment a raw value, 5 is always gonna be 5 son."
+        << std::endl;
     return nullptr;
   }
 
@@ -238,7 +267,8 @@ llvm::Value *CodeGen::visit(const Unary_Node *n) {
   case TokenType::not_:
     return Builder->CreateNot(Operand, "nottmp");
   default:
-    std::cerr << "Unsupported unary operator." << std::endl;
+    codegen_error(n->m_line)
+        << "This operator can't go in front of a value gang." << std::endl;
     return nullptr;
   }
 }
@@ -547,14 +577,18 @@ llvm::Value *CodeGen::visit(const FunctionCall_Node *n) {
   // 1. Look up the name in the global module table
   llvm::Function *CalleeF = TheModule->getFunction(n->m_name);
   if (!CalleeF) {
-    std::cerr << "Unknown function referenced: " << n->m_name << std::endl;
+    codegen_error(n->m_line)
+        << "Function '" << n->m_name
+        << "' doesn't exist. Declare it above where you call it." << std::endl;
     return nullptr;
   }
 
   // 2. Verify argument count matches
   if (CalleeF->arg_size() != n->m_args.size()) {
-    std::cerr << "Incorrect number of arguments passed to " << n->m_name
-              << std::endl;
+    codegen_error(n->m_line)
+        << "'" << n->m_name << "' takes " << CalleeF->arg_size()
+        << " argument(s) but you gave it " << n->m_args.size()
+        << ". Count again bro." << std::endl;
     return nullptr;
   }
 

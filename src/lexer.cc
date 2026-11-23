@@ -93,7 +93,11 @@ std::vector<Token> Tokenizer::tokenize() {
         if (peek() == '.' && is_float == false) {
           is_float = true;
         } else if (peek() == '.') {
-          std::cerr << "Can't have multiple . in float gang" << std::endl;
+          std::cerr << "Error on line " << m_line << ": '" << *curr_token.value
+                    << "' already has a decimal point, you can't add another "
+                       "'.' to it. Pick ONE and commit to it gang."
+                    << std::endl;
+          exit(1);
         }
         (*curr_token.value) += std::string(1, peek());
         consume();
@@ -144,11 +148,14 @@ std::vector<Token> Tokenizer::tokenize() {
     }
 
     else if (peek() == '"') {
+      int start_line = m_line;
       consume();
       curr_token.value = "";
       while (!(peek() == '"')) {
         if (peek() == '\0') {
-          std::cerr << "Quote not closed, error on line " << m_line
+          std::cerr << "Error on line " << start_line
+                    << ": You opened a string with \" and never closed it. "
+                       "Add the closing \" bro, it's not that deep."
                     << std::endl;
           exit(1);
         }
@@ -167,8 +174,11 @@ std::vector<Token> Tokenizer::tokenize() {
       consume();
       curr_token.value = "";
       if (peek(1) != '\'' || peek() == '\0' || peek() == '\n') {
-        std::cerr << "Char quote not closed or too long, error on line "
-                  << m_line << std::endl;
+        std::cerr << "Error on line " << m_line
+                  << ": Chars go in single quotes and hold exactly ONE "
+                     "character, like 'a'. For anything longer use a joeStr "
+                     "with \"double quotes\" smh."
+                  << std::endl;
         exit(1);
       } else {
         (*curr_token.value) += std::string(1, consume());
@@ -378,11 +388,16 @@ std::vector<Token> Tokenizer::tokenize() {
 
       while (peek() != ']') {
         if (peek() == '\0') {
-          std::cerr << "No closing square bracket smh, error on line " << m_line
+          std::cerr << "Error on line " << m_line
+                    << ": You opened a '[' and never closed it with ']'. "
+                       "Brackets come in pairs, like socks smh."
                     << std::endl;
           exit(1);
         } else if (!isdigit(peek())) {
-          std::cerr << "Not a valid index, error on line " << m_line
+          std::cerr << "Error on line " << m_line << ": '" << peek()
+                    << "' is not a valid array index. Indexes are plain "
+                       "numbers like [0] or [3], no math or variables in there "
+                       "chief."
                     << std::endl;
           exit(1);
         }
@@ -407,9 +422,12 @@ std::vector<Token> Tokenizer::tokenize() {
     }
 
     else {
-      std::cerr
-          << "What sped characters are u using bruv, what da helly is this: "
-          << peek() << "this on line " << m_line << std::endl;
+      std::cerr << "Error on line " << m_line
+                << ": What sped characters are u using bruv, what da helly is "
+                   "this: '"
+                << peek()
+                << "'. JoeScript doesn't know what that is, delete it."
+                << std::endl;
       exit(1);
     }
   }
