@@ -95,7 +95,6 @@ std::vector<Token> Tokenizer::tokenize() {
         } else if (peek() == '.') {
           std::cerr << "Error on line " << m_line << ": '" << *curr_token.value
                     << "' already has a decimal point, you can't add another "
-                       "'.' to it. Pick ONE and commit to it gang."
                     << std::endl;
           exit(1);
         }
@@ -390,14 +389,13 @@ std::vector<Token> Tokenizer::tokenize() {
         if (peek() == '\0') {
           std::cerr << "Error on line " << m_line
                     << ": You opened a '[' and never closed it with ']'. "
-                       "Brackets come in pairs, like socks smh."
+                       "Brackets come in pairs, lock in bro smh."
                     << std::endl;
           exit(1);
         } else if (!isdigit(peek())) {
           std::cerr << "Error on line " << m_line << ": '" << peek()
                     << "' is not a valid array index. Indexes are plain "
                        "numbers like [0] or [3], no math or variables in there "
-                       "chief."
                     << std::endl;
           exit(1);
         }
@@ -425,8 +423,7 @@ std::vector<Token> Tokenizer::tokenize() {
       std::cerr << "Error on line " << m_line
                 << ": What sped characters are u using bruv, what da helly is "
                    "this: '"
-                << peek()
-                << "'. JoeScript doesn't know what that is, delete it."
+                << peek() << "'. Joe doesn't know what that is, delete it."
                 << std::endl;
       exit(1);
     }
